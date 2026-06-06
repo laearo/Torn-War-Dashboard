@@ -551,39 +551,27 @@ function showDebug(data) {
     <pre style="margin-top:8px;white-space:pre-wrap;word-break:break-all;color:#e8eaf0;font-size:10px">${JSON.stringify(data, null, 2).slice(0, 3000)}</pre>`;
 }
 
-// ── Main poll ──────────────────────────────────────────────────────────────
-async function poll() {
+// ── Fast poll: chain only every 2s ─────────────────────────────────────────
+async function pollChain() {
   if (paused || !tornKey) return;
-
   try {
-    // Fetch my faction members + chain + attacks in parallel
-    const [myR, chainR, attacksR] = await Promise.all([
-      fetch(`https://api.torn.com/v2/faction?selections=members,basic&key=${tornKey}`),
-      fetch(`https://api.torn.com/faction/?selections=chain&key=${tornKey}`),
-      fetch(`https://api.torn.com/faction/?selections=attacks&key=${tornKey}`),
-    ]);
-    const myD      = await myR.json();
-    const chainRaw = await chainR.json();
-    const attacksRaw = await attacksR.json();
-    if (myD.error) throw new Error(myD.error.error || 'error ' + myD.error.code);
-
-    if (!myFactionId) myFactionId = myD.basic?.id;
-    const myName = myD.basic?.name || 'My faction';
-    const parsedMy = parseMyMembers(myD.members || {});
-    myMembers = parsedMy;
-    updateMySummary(myName, parsedMy);
-    renderMyTable();
-
-    // Chain — requires Limited Access key + AA faction permission
+    const r = await fetch(`https://api.torn.com/faction/?selections=chain&key=${tornKey}`);
+    const chainRaw = await r.json();
     if (chainRaw && !chainRaw.error) {
       chainData = chainRaw.chain ?? chainRaw ?? {};
       renderChain();
     } else if (chainRaw?.error) {
-      // Silently hide — likely insufficient key access level
       document.getElementById('chain-box').style.display = 'none';
     }
+  } catch(_) {}
+}
 
-    // Attacks — requires AA permission; hide section gracefully if unavailable
+// ── Attacks poll every 10s ─────────────────────────────────────────────────
+async function pollAttacks() {
+  if (paused || !tornKey) return;
+  try {
+    const r = await fetch(`https://api.torn.com/faction/?selections=attacks&key=${tornKey}`);
+    const attacksRaw = await r.json();
     if (attacksRaw && !attacksRaw.error && attacksRaw.attacks) {
       attackData = Object.values(attacksRaw.attacks);
       renderAttacks();
@@ -591,8 +579,51 @@ async function poll() {
       document.getElementById('active-fights-section').style.display = 'none';
       document.getElementById('recent-attacks-section').style.display = 'none';
     }
+  } catch(_) {}
+}
 
-    // Fetch enemy faction members (requires enemyFactionId to be set)
+// ── War score poll every 15s ───────────────────────────────────────────────
+async function pollWarScore() {
+  if (paused || !tornKey || !myFactionId || !enemyFactionId) return;
+  try {
+    const wr = await fetch(`https://api.torn.com/v2/faction?selections=rankedwars&key=${tornKey}`);
+    const wd = await wr.json();
+    if (!wd.error) {
+      const entries = Array.isArray(wd.rankedwars) ? wd.rankedwars : Object.values(wd.rankedwars || {});
+      const active  = entries.find(w => !w.end || w.end === 0) ?? entries[0];
+      if (active) {
+        const war   = active.war ?? active;
+        const ourId = String(myFactionId);
+        if (Array.isArray(war.factions)) {
+          const myF = war.factions.find(f => String(f.id) === ourId);
+          const enF = war.factions.find(f => String(f.id) !== ourId);
+          if (myF && enF) {
+            warScores = { ...warScores, myScore: myF.score ?? 0, enemyScore: enF.score ?? 0, enemyChain: enF.chain ?? 0, target: war.target || 0 };
+            renderWarScore();
+            renderEnemyChain();
+          }
+        }
+      }
+    }
+  } catch(_) {}
+}
+
+// ── Main poll: member statuses every 10s ───────────────────────────────────
+async function poll() {
+  if (paused || !tornKey) return;
+
+  try {
+    const myR = await fetch(`https://api.torn.com/v2/faction?selections=members,basic&key=${tornKey}`);
+    const myD = await myR.json();
+    if (myD.error) throw new Error(myD.error.error || 'error ' + myD.error.code);
+
+    if (!myFactionId) myFactionId = myD.basic?.id;
+    const myName   = myD.basic?.name || 'My faction';
+    const parsedMy = parseMyMembers(myD.members || {});
+    myMembers = parsedMy;
+    updateMySummary(myName, parsedMy);
+    renderMyTable();
+
     if (enemyFactionId) {
       const enR = await fetch(`https://api.torn.com/v2/faction/${enemyFactionId}?selections=members,basic&key=${tornKey}`);
       const enD = await enR.json();
@@ -602,35 +633,8 @@ async function poll() {
         const enName = enD.basic?.name || `Faction #${enemyFactionId}`;
         updateEnemySummary(enName, parsed);
         ['ok', 'hosp', 'abroad'].forEach(renderTable);
-
-        // Update page title
         document.getElementById('page-title').textContent = `${myName} vs ${enName}`;
       }
-    }
-
-    // Refresh war scores every ~10s (every 5th poll) to avoid rate limit
-    pollCount++;
-    if (pollCount % 5 === 0 && myFactionId && enemyFactionId) {
-      try {
-        const wr = await fetch(`https://api.torn.com/v2/faction?selections=rankedwars&key=${tornKey}`);
-        const wd = await wr.json();
-        if (!wd.error) {
-          const entries = Array.isArray(wd.rankedwars) ? wd.rankedwars : Object.values(wd.rankedwars || {});
-          const active  = entries.find(w => !w.end || w.end === 0) ?? entries[0];
-          if (active) {
-            const war   = active.war ?? active;
-            const ourId = String(myFactionId);
-            if (Array.isArray(war.factions)) {
-              const myF = war.factions.find(f => String(f.id) === ourId);
-              const enF = war.factions.find(f => String(f.id) !== ourId);
-              if (myF && enF) {
-                warScores = { ...warScores, myScore: myF.score ?? 0, enemyScore: enF.score ?? 0, enemyChain: enF.chain ?? 0, target: war.target || 0 };
-                renderWarScore();
-              }
-            }
-          }
-        }
-      } catch(_) {}
     }
 
     const now = new Date();
@@ -643,6 +647,7 @@ async function poll() {
   }
 }
 
+
 // ── Pause / resume ─────────────────────────────────────────────────────────
 function togglePause() {
   paused = !paused;
@@ -650,7 +655,7 @@ function togglePause() {
   btn.innerHTML = paused
     ? '<i class="ti ti-player-play" aria-hidden="true"></i> Resume'
     : '<i class="ti ti-player-pause" aria-hidden="true"></i> Pause';
-  if (!paused) poll();
+  if (!paused) { poll(); pollChain(); }
 }
 
 // ── Connect ────────────────────────────────────────────────────────────────
@@ -691,8 +696,11 @@ async function initConnect() {
     // Still continue — sidebar will show my faction even with no war
   }
 
-  // Step 3: initial full poll
+  // Step 3: initial polls
   await poll();
+  await pollChain();
+  await pollAttacks();
+  await pollWarScore();
   // Restore saved column widths after tables are populated
   const savedLayout = loadSizes();
   if (savedLayout?.columns) restoreColumnWidths(savedLayout.columns);
@@ -707,17 +715,24 @@ async function initConnect() {
   clearInterval(refreshTimer);
   clearInterval(ffTimer);
   clearInterval(timerTickInterval);
-  refreshTimer      = setInterval(poll, 2000);
-  timerTickInterval = setInterval(tickTimers, 1000);
+  if (window._chainTimer)     clearInterval(window._chainTimer);
+  if (window._attacksTimer)   clearInterval(window._attacksTimer);
+  if (window._warScoreTimer)  clearInterval(window._warScoreTimer);
+
+  window._chainTimer     = setInterval(pollChain,      2_000);   // chain: 2s
+  refreshTimer           = setInterval(poll,           5_000);   // member statuses: 5s
+  window._attacksTimer   = setInterval(pollAttacks,   10_000);   // attacks: 10s
+  window._warScoreTimer  = setInterval(pollWarScore,  10_000);   // war score: 10s
+  timerTickInterval      = setInterval(tickTimers,     1_000);   // hosp countdowns: no API
   ffTimer = setInterval(() => {
     const eIds = [...enemyData.ok, ...enemyData.hosp, ...enemyData.abroad].map(m => m.id);
     const mIds = myMembers.map(m => m.id);
     const ids  = [...new Set([...eIds, ...mIds])];
     if (ids.length) fetchFF(ids);
-  }, 60_000);
+  }, 300_000);  // FF scores: 5 minutes
 
   document.getElementById('pause-btn').disabled = false;
-  document.getElementById('refresh-label').textContent = 'Auto-refresh: 2s';
+  document.getElementById('refresh-label').textContent = 'Chain: 2s · Members: 5s';
   document.getElementById('ff-note').style.display = 'flex';
   document.getElementById('load-btn').disabled = false;
 }
