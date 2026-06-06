@@ -1,6 +1,7 @@
 # Torn War Dashboard
 
 Real-time war dashboard for Torn City factions. Shows member statuses (OK, Hospital, Abroad) with Fair Fight scores and one-click attack links. Auto-refreshes every 2 seconds.
+All data stored locally
 
 ## Files
 
@@ -17,58 +18,19 @@ torn-war-dashboard/
 ### 1. Register your Torn API key with FFScouter
 
 FF scores come from [FFScouter](https://ffscouter.com). You use your **existing Torn API key** — no separate key needed — but you must register it first:
-
+**Limited Access**
 1. Go to **[ffscouter.com](https://ffscouter.com)**
 2. Sign up / log in using your Torn account
 3. Register your Torn API key with their service
 
 This is free and takes about 30 seconds. Without it, the FF column will show `—` for all members.
 
-### 2. Check your Torn API key access level
 
-Your key needs **Limited Access** or higher to pull faction member data, and your faction position must have the **AA (Faction API Access)** permission enabled.
+**serve locally **
 
-To create or check a key: Torn → Settings → API Key.
-
-### 3. Run the dashboard
-
-The dashboard is plain HTML/CSS/JS — no build step, no dependencies to install.
-
-**Option A — open directly in your browser:**
-```
-Just double-click index.html
-```
-Note: some browsers block API calls from `file://` URLs due to CORS. If FF scores don't load, use Option B.
-
-**Option B — serve locally (recommended):**
-
-If you have Python installed:
-```bash
-cd torn-war-dashboard
-python3 -m http.server 8080
-```
-Then open [http://localhost:8080](http://localhost:8080) in your browser.
-
-If you have Node.js installed:
-```bash
-npx serve torn-war-dashboard
+Download and run index.html in a browser
 ```
 
-**Option C — host it somewhere:**
-
-Upload the three files (`index.html`, `style.css`, `app.js`) to any static host:
-- GitHub Pages (free)
-- Netlify (free, drag-and-drop deploy)
-- Any web server
-
-### 4. Use it
-
-1. Open the dashboard in your browser
-2. Paste your Torn API key into the input field
-3. Click **Connect** (or press Enter)
-4. Member statuses load immediately; FF scores appear shortly after
-
----
 
 ## How it works
 
