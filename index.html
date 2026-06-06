@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Torn War Dashboard</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css" />
+</head>
+<body>
+
+  <div class="container">
+
+    <div class="header">
+      <div class="header-left">
+        <i class="ti ti-sword" aria-hidden="true"></i>
+        <div>
+          <div class="header-title" id="page-title">War Dashboard</div>
+          <div class="header-sub" id="page-sub">Enter your API key to load faction data</div>
+        </div>
+      </div>
+      <div class="header-right">
+        <span class="refresh-label" id="refresh-label"></span>
+        <button class="btn" id="save-layout-btn" onclick="saveLayout()" title="Save current column widths and panel sizes">
+          <i class="ti ti-layout" aria-hidden="true"></i> Save layout
+        </button>
+        <button class="btn" id="pause-btn" onclick="togglePause()" disabled>
+          <i class="ti ti-player-pause" aria-hidden="true"></i> Pause
+        </button>
+      </div>
+    </div>
+
+    <div class="api-bar">
+      <input type="password" id="torn-key" placeholder="Torn API key — register it at ffscouter.com first for FF scores..." />
+      <button class="btn btn-primary" id="load-btn" onclick="initConnect()">
+        <i class="ti ti-plug" aria-hidden="true"></i> Connect
+      </button>
+    </div>
+
+    <div class="status-bar">
+      <span class="status-dot" id="status-dot"></span>
+      <span class="status-msg" id="status-msg">Not connected</span>
+    </div>
+
+    <!-- ── War score + Chain row ── -->
+    <div class="chain-row">
+      <div class="war-score-box" id="war-score-box" style="display:none"></div>
+      <div class="chain-box" id="chain-box" style="display:none; flex:1">
+      <div class="chain-header">
+        <div class="chain-title">
+          <i class="ti ti-link" aria-hidden="true"></i>
+          Chain
+          <span class="chain-status-badge" id="chain-status-badge"></span>
+        </div>
+        <div class="chain-stats">
+          <div class="chain-stat">
+            <span class="chain-stat-label">Current / Max</span>
+            <span class="chain-stat-val" id="chain-current">—</span>
+          </div>
+          <div class="chain-stat">
+            <span class="chain-stat-label">Next bonus</span>
+            <span class="chain-stat-val" id="chain-bonus">—</span>
+          </div>
+          <div class="chain-stat">
+            <span class="chain-stat-label">Modifier</span>
+            <span class="chain-stat-val" id="chain-modifier">—</span>
+          </div>
+          <div class="chain-stat chain-timer-stat">
+            <span class="chain-stat-label">Time left</span>
+            <span class="chain-stat-val chain-timer-val" id="chain-timer">—</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Active fights -->
+      <div id="active-fights-section" style="display:none">
+        <div class="chain-section-label"><i class="ti ti-bolt" aria-hidden="true"></i> Active fights</div>
+        <div id="active-fights"></div>
+      </div>
+
+      <!-- Recent attacks — collapsible -->
+      <div id="recent-attacks-section" style="display:none">
+        <div class="chain-section-label chain-section-toggle" onclick="toggleRecents()" id="recents-toggle">
+          <i class="ti ti-history" aria-hidden="true"></i> Last 5 attacks
+          <i class="ti ti-chevron-down" id="recents-chevron" style="margin-left:auto;font-size:12px;transition:transform 0.2s" aria-hidden="true"></i>
+        </div>
+        <div id="recents-body-wrap">
+          <table class="attack-table">
+            <thead><tr>
+              <th>Attacker</th>
+              <th>Defender</th>
+              <th>Result</th>
+              <th>Respect</th>
+              <th>Chain</th>
+              <th>When</th>
+            </tr></thead>
+            <tbody id="recent-attacks-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div><!-- /.chain-box -->
+    </div><!-- /.chain-row -->
+
+    <!-- War layout: friendly (left sidebar) + enemy (right main) -->
+    <div class="war-layout">
+
+      <!-- ── My faction (left sidebar) ── -->
+      <div class="war-sidebar">
+
+        <div class="panel-header">
+          <div class="panel-label my-label">
+            <i class="ti ti-shield" aria-hidden="true"></i>
+            <span id="my-faction-name">My faction</span>
+          </div>
+          <div class="summary-chips">
+            <span class="chip chip-ok"><span id="m-s-ok">—</span> OK</span>
+            <span class="chip chip-hosp"><span id="m-s-hosp">—</span> Hosp</span>
+          </div>
+        </div>
+
+        <div class="module">
+          <div class="module-header" style="justify-content:space-between">
+            <div class="module-title">All members</div>
+            <span class="module-count" id="my-total-count">0</span>
+          </div>
+          <div class="module-body">
+            <table>
+              <thead><tr>
+                <th class="col-name"  onclick="sortMyTable('name')" id="my-h-name">Name <span class="sa">↕</span></th>
+                <th class="col-lvl"   onclick="sortMyTable('level')" id="my-h-level">Lvl <span class="sa">↕</span></th>
+                <th class="col-ff"    onclick="sortMyTable('ff')" id="my-h-ff">FF <span class="sa">↕</span></th>
+                <th class="col-state" onclick="sortMyTable('state')" id="my-h-state">State <span class="sa">↕</span></th>
+                <th class="col-info"  onclick="sortMyTable('info')" id="my-h-info">Detail <span class="sa">↕</span></th>
+              </tr></thead>
+              <tbody id="my-body"><tr><td colspan="5" class="empty-state">No data</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+      </div><!-- /.war-sidebar -->
+
+      <!-- ── Enemy faction (right main) ── -->
+      <div class="war-main">
+
+        <div class="panel-header">
+          <div class="panel-label enemy-label">
+            <i class="ti ti-target" aria-hidden="true"></i>
+            <span id="enemy-faction-name">Enemy faction</span>
+          </div>
+          <div class="summary-chips">
+            <span class="chip chip-ok"><span id="e-s-ok">—</span> OK</span>
+            <span class="chip chip-hosp"><span id="e-s-hosp">—</span> Hosp</span>
+            <span class="chip chip-abroad"><span id="e-s-abroad">—</span> Abroad</span>
+          </div>
+        </div>
+
+        <div class="modules-grid">
+
+          <!-- Enemy OK -->
+          <div class="module">
+            <div class="module-header">
+              <div class="module-title">
+                <i class="ti ti-check status-ok" aria-hidden="true"></i> OK / Ready
+              </div>
+              <span class="module-count" id="ok-count">0</span>
+            </div>
+            <div class="module-body">
+              <table>
+                <thead><tr>
+                  <th class="col-name" onclick="sortTable('ok','name')" id="ok-h-name">Name <span class="sa">↕</span></th>
+                  <th class="col-lvl"  onclick="sortTable('ok','level')" id="ok-h-level">Lvl <span class="sa">↕</span></th>
+                  <th class="col-ff"   onclick="sortTable('ok','ff')" id="ok-h-ff">FF <span class="sa">↕</span></th>
+                  <th class="col-info" onclick="sortTable('ok','last_action')" id="ok-h-last_action">Last active <span class="sa">↕</span></th>
+                  <th class="col-atk">Attack</th>
+                </tr></thead>
+                <tbody id="ok-body"><tr><td colspan="5" class="empty-state">No data</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Enemy Hospital -->
+          <div class="module">
+            <div class="module-header">
+              <div class="module-title">
+                <i class="ti ti-building-hospital status-hosp" aria-hidden="true"></i> Hospital
+              </div>
+              <span class="module-count" id="hosp-count">0</span>
+            </div>
+            <div class="module-body">
+              <table>
+                <thead><tr>
+                  <th class="col-name" onclick="sortTable('hosp','name')" id="hosp-h-name">Name <span class="sa">↕</span></th>
+                  <th class="col-lvl"  onclick="sortTable('hosp','level')" id="hosp-h-level">Lvl <span class="sa">↕</span></th>
+                  <th class="col-ff"   onclick="sortTable('hosp','ff')" id="hosp-h-ff">FF <span class="sa">↕</span></th>
+                  <th class="col-info" onclick="sortTable('hosp','until')" id="hosp-h-until">Out in <span class="sa">↕</span></th>
+                  <th class="col-atk">Attack</th>
+                </tr></thead>
+                <tbody id="hosp-body"><tr><td colspan="5" class="empty-state">No data</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Enemy Abroad -->
+          <div class="module">
+            <div class="module-header">
+              <div class="module-title">
+                <i class="ti ti-plane status-abroad" aria-hidden="true"></i> Abroad
+              </div>
+              <span class="module-count" id="abroad-count">0</span>
+            </div>
+            <div class="module-body">
+              <table>
+                <thead><tr>
+                  <th class="col-name" onclick="sortTable('abroad','name')" id="abroad-h-name">Name <span class="sa">↕</span></th>
+                  <th class="col-lvl"  onclick="sortTable('abroad','level')" id="abroad-h-level">Lvl <span class="sa">↕</span></th>
+                  <th class="col-ff"   onclick="sortTable('abroad','ff')" id="abroad-h-ff">FF <span class="sa">↕</span></th>
+                  <th class="col-info" onclick="sortTable('abroad','desc')" id="abroad-h-desc">Location <span class="sa">↕</span></th>
+                  <th class="col-atk">Attack</th>
+                </tr></thead>
+                <tbody id="abroad-body"><tr><td colspan="5" class="empty-state">No data</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+
+        </div><!-- /.modules-grid -->
+      </div><!-- /.war-main -->
+
+    </div><!-- /.war-layout -->
+
+    <p class="ff-note" id="ff-note" style="display:none">
+      <i class="ti ti-info-circle" aria-hidden="true"></i>
+      FF: 0–1 blue · 1–2 teal · 2–4 green · 4–5 red · 5+ purple.
+      Scores via FFScouter — your Torn key must be registered at
+      <a href="https://ffscouter.com" target="_blank" rel="noopener">ffscouter.com</a>.
+    </p>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
