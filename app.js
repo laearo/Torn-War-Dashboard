@@ -696,6 +696,8 @@ async function initConnect() {
   // Restore saved column widths after tables are populated
   const savedLayout = loadSizes();
   if (savedLayout?.columns) restoreColumnWidths(savedLayout.columns);
+  // Re-init mobile collapse now that modules have content
+  initMobileCollapse();
   const allEnemyIds = [...enemyData.ok, ...enemyData.hosp, ...enemyData.abroad].map(m => m.id);
   const allMyIds    = myMembers.map(m => m.id);
   const allIds      = [...new Set([...allEnemyIds, ...allMyIds])];
@@ -902,7 +904,10 @@ document.addEventListener('DOMContentLoaded', () => {
   initSidebarResizer();
   const saved = loadSizes();
   if (saved?.columns) restoreColumnWidths(saved.columns);
+  initMobileCollapse();
 });
+
+window.addEventListener('resize', () => { initMobileCollapse(); });
 
 // ── Sidebar resizer ────────────────────────────────────────────────────────
 function initSidebarResizer() {
@@ -1017,6 +1022,71 @@ function toggleRecents() {
   recentsOpen = !recentsOpen;
   document.getElementById('recents-body-wrap').style.display = recentsOpen ? '' : 'none';
   document.getElementById('recents-chevron').style.transform = recentsOpen ? '' : 'rotate(-90deg)';
+}
+
+// ── Mobile collapsible sections ────────────────────────────────────────────
+function isMobile() { return window.innerWidth <= 768; }
+let mobileCollapseInited = false;
+
+function addChevron(headerEl) {
+  if (headerEl.querySelector('.collapse-chevron')) return headerEl.querySelector('.collapse-chevron');
+  const ch = document.createElement('i');
+  ch.className = 'ti ti-chevron-down collapse-chevron';
+  ch.setAttribute('aria-hidden', 'true');
+  headerEl.appendChild(ch);
+  return ch;
+}
+
+function makeCollapsible(headerEl, bodyEl, storageKey, defaultOpen = true) {
+  if (headerEl.dataset.collapsible) return; // already wired up
+  headerEl.dataset.collapsible = '1';
+  const chevron = addChevron(headerEl);
+  let open = defaultOpen;
+  try {
+    const saved = localStorage.getItem('torn-collapse-' + storageKey);
+    if (saved !== null) open = saved === '1';
+  } catch(_) {}
+
+  function apply() {
+    bodyEl.classList.toggle('section-collapsed', !open);
+    chevron.classList.toggle('closed', !open);
+    try { localStorage.setItem('torn-collapse-' + storageKey, open ? '1' : '0'); } catch(_) {}
+  }
+
+  headerEl.addEventListener('click', e => {
+    if (!isMobile()) return;
+    if (e.target.closest('th')) return;
+    open = !open;
+    apply();
+  });
+
+  apply();
+}
+
+function initMobileCollapse() {
+  if (!isMobile()) return;
+
+  // My faction panel
+  const sidebarHeader = document.querySelector('.war-sidebar .panel-header');
+  const sidebarBody   = document.querySelector('.war-sidebar .module');
+  if (sidebarHeader && sidebarBody) makeCollapsible(sidebarHeader, sidebarBody, 'my-faction', true);
+
+  // Enemy panel header
+  const enemyHeader = document.querySelector('.war-main .panel-header');
+  const enemyBody   = document.querySelector('.war-main .modules-grid');
+  if (enemyHeader && enemyBody) makeCollapsible(enemyHeader, enemyBody, 'enemy', true);
+
+  // Each enemy module
+  document.querySelectorAll('.modules-grid .module').forEach((mod, i) => {
+    const hdr  = mod.querySelector('.module-header');
+    const body = mod.querySelector('.module-body');
+    if (hdr && body) makeCollapsible(hdr, body, 'enemy-mod-' + i, true);
+  });
+
+  // Chain box
+  const chainHeader = document.querySelector('.chain-box .chain-header');
+  const chainBody   = document.querySelector('.chain-box .chain-stats');
+  if (chainHeader && chainBody) makeCollapsible(chainHeader, chainBody, 'chain', true);
 }
 
 // ── Enter key ──────────────────────────────────────────────────────────────
