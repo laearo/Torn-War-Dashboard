@@ -70,6 +70,21 @@ function renderWarScore() {
       <span class="war-score-num ${!myAhead ? 'war-score-winning' : ''}">${(enemyScore||0).toLocaleString()}</span>
     </div>
     <div class="war-score-target">target ${(target||0).toLocaleString()}</div>`;
+  renderEnemyChain();
+}
+
+// ── Render enemy chain box ─────────────────────────────────────────────────
+function renderEnemyChain() {
+  const el = document.getElementById('enemy-chain-box');
+  if (!el || !warScores) return;
+  const chain = warScores.enemyChain || 0;
+  el.style.display = '';
+  el.innerHTML = `
+    <div class="war-score-label">Enemy chain</div>
+    <div class="war-score-vals">
+      <span class="war-score-num ${chain > 0 ? 'chain-active' : ''}">${chain.toLocaleString()}</span>
+    </div>
+    <div class="war-score-target">from war data</div>`;
 }
 
 // ── Render chain box ───────────────────────────────────────────────────────
@@ -384,12 +399,20 @@ function parseEnemyMembers(members) {
 
     if (state === 'hospital' || state === 'hospitalized') {
       const now = Math.floor(Date.now() / 1000);
+      console.log('[hosp member]', m.name, '| desc:', desc, '| until:', until);
       if (until > 0 && until <= now) {
         ok.push(base);
-      } else if (desc.toLowerCase().includes('foreign') || desc.toLowerCase().includes('abroad')) {
-        abroad.push({ ...base, desc });
       } else {
-        hosp.push({ ...base, until });
+        const dl = desc.toLowerCase();
+        // "In a foreign hospital" / "Hospitalized in <country>" = abroad hosp
+        // Plain "Hospitalized" / "In hospital" = local hosp
+        const isAbroad = dl.includes('foreign') || dl.includes('abroad')
+          || (dl.includes('hospital') && dl.includes(' in ') && !dl.match(/^in (a )?hospital/));
+        if (isAbroad) {
+          abroad.push({ ...base, desc });
+        } else {
+          hosp.push({ ...base, until });
+        }
       }
     } else if (state === 'abroad' || state === 'traveling' || state === 'travelling') {
       abroad.push({ ...base, desc });
@@ -494,6 +517,7 @@ async function resolveEnemyFactionId() {
       enemyName:  ef.name || `Faction #${ef.id}`,
       myScore:    myF?.score ?? 0,
       enemyScore: ef.score  ?? 0,
+      enemyChain: ef.chain  ?? 0,
       target:     war.target || 0,
     };
   }
@@ -600,7 +624,7 @@ async function poll() {
               const myF = war.factions.find(f => String(f.id) === ourId);
               const enF = war.factions.find(f => String(f.id) !== ourId);
               if (myF && enF) {
-                warScores = { ...warScores, myScore: myF.score ?? 0, enemyScore: enF.score ?? 0, target: war.target || 0 };
+                warScores = { ...warScores, myScore: myF.score ?? 0, enemyScore: enF.score ?? 0, enemyChain: enF.chain ?? 0, target: war.target || 0 };
                 renderWarScore();
               }
             }
@@ -660,7 +684,7 @@ async function initConnect() {
     const result = await resolveEnemyFactionId();
     enemyFactionId = result.enemyId;
     document.getElementById('enemy-faction-name').textContent = result.enemyName;
-    warScores = result;
+    warScores = { ...result, enemyChain: 0 };
     renderWarScore();
   } catch (e) {
     setStatus('error', e.message + ' — showing my faction only');

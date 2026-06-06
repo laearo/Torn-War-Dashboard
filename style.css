@@ -448,6 +448,21 @@ th { position: relative; }
 .war-score-winning { color: var(--text); }
 .war-score-sep { font-size: 18px; color: var(--text-faint); }
 .war-score-target { font-size: 11px; color: var(--text-faint); }
+.chain-active { color: var(--amber) !important; }
+
+.enemy-chain-box {
+  background: var(--bg-surface);
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 14px 22px;
+  min-width: 140px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-align: center;
+}
 
 /* ── Chain box ── */
 .chain-box {
