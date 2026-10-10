@@ -170,7 +170,7 @@ function renderAttacks() {
   if (active.length) {
     activeSec.style.display = '';
     fightBox.innerHTML = active.map(a => {
-      const joinHref = `https://www.torn.com/loader.php?sid=attack&user2ID=${a.defender_id}`;
+      const joinHref = `https://www.torn.com/.php?sid=attack&user2ID=${a.defender_id}`;
       return `<div class="fight-row">
         <span class="fight-attacker">${a.attacker_name || 'Unknown'}</span>
         <span class="fight-vs">vs</span>
@@ -291,7 +291,7 @@ function renderTable(key) {
     const score  = ffScores[m.id];
     const ffCell = `<span class="ff-pill ${ffClass(score)}">${score != null ? score.toFixed(2) : '—'}</span>`;
     const name   = `<span class="name-cell">${onlineDot(m.online)}<a class="player-link" href="https://www.torn.com/profiles.php?XID=${m.id}" target="_blank" rel="noopener">${m.name}</a></span>`;
-    const atk    = `<a class="atk-btn" href="https://www.torn.com/loader.php?sid=attack&user2ID=${m.id}" target="_blank" rel="noopener"><i class="ti ti-sword" style="font-size:11px" aria-hidden="true"></i> Attack</a>`;
+    const atk    = `<a class="atk-btn" href="https://www.torn.com/page.php?sid=attack&user2ID=${m.id}" target="_blank" rel="noopener"><i class="ti ti-sword" style="font-size:11px" aria-hidden="true"></i> Attack</a>`;
     let info;
     if (key === 'ok')        info = `<span class="last-seen">${timeAgo(m.last_action)}</span>`;
     else if (key === 'hosp') info = `<span class="timer">${timeUntil(m.until) === 'now' ? '<span style="color:var(--green)">Out!</span>' : timeUntil(m.until)}</span>`;
