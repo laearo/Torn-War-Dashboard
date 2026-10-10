@@ -720,7 +720,7 @@ async function initConnect() {
   if (window._warScoreTimer)  clearInterval(window._warScoreTimer);
 
   window._chainTimer     = setInterval(pollChain,      2_000);   // chain: 2s
-  refreshTimer           = setInterval(poll,           5_000);   // member statuses: 5s
+  refreshTimer           = setInterval(poll,           3_000);   // member statuses: 5s
   window._attacksTimer   = setInterval(pollAttacks,   10_000);   // attacks: 10s
   window._warScoreTimer  = setInterval(pollWarScore,  10_000);   // war score: 10s
   timerTickInterval      = setInterval(tickTimers,     1_000);   // hosp countdowns: no API
